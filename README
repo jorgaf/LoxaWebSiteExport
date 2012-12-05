@@ -1,4 +1,4 @@
 You need the following libraries:
-GSON
-JSOUP
+GSON (http://code.google.com/p/google-gson/)
+JSOUP (http://jsoup.org)
 JDesktop Layout
