@@ -3,3 +3,5 @@ You need the following libraries:
 GSON (http://code.google.com/p/google-gson/)
 JSOUP (http://jsoup.org)
 JDesktop Layout
+
+You can see a example in http://www.j4loxa.com/sna/gephi/plugins/ (I am working to update this site to the new version with sigmajs)
