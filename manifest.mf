@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+OpenIDE-Module: ec.loxa.sna.gephi
+OpenIDE-Module-Localizing-Bundle: ec/loxa/sna/gephi/Bundle.properties
+OpenIDE-Module-Specification-Version: 0.3
+
