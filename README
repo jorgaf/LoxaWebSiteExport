@@ -1,3 +1,4 @@
+The plugin now use sigma.js to show the graph
 You need the following libraries:
 GSON (http://code.google.com/p/google-gson/)
 JSOUP (http://jsoup.org)
