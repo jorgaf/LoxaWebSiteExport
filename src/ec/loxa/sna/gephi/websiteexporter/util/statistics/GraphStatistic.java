@@ -2,9 +2,10 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package ec.loxa.sna.gephi.websiteexporter.util.statistics;
 
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
@@ -18,13 +19,14 @@ public class GraphStatistic {
     private String edges;
     private String description;
     private String imgColorDescription;
-    private String avgdegree;
-    private String avgweighteddegree;
-    private String density;
     private String graphfile;
     private String pdffile;
     private String browsegraph;
+    private String type;
+    private List<Metrics> metrics = new ArrayList<Metrics>();
 
+    //Agregar 3 campos Nombre, valor, descripcion;
+    //Borrar avgdegree, avgweighteddegree, density;
     public GraphStatistic() {
         name = "";
         title = "";
@@ -33,19 +35,14 @@ public class GraphStatistic {
         edges = "";
         description = "";
         imgColorDescription = "";
-        avgdegree = "";
-        avgweighteddegree = "";
-        density = "";
         graphfile = "";
         pdffile = "";
         browsegraph = "";
+        type = "";
     }
 
-
-
-    public GraphStatistic(String name, String title, String tip, String nodes, 
-            String edges, String description, String imgColorDescription, 
-            String avgdegree, String avgweighteddegree, String density, 
+    public GraphStatistic(String name, String title, String tip, String nodes,
+            String edges, String description, String imgColorDescription,
             String graphfile, String pdffile, String browsegraph) {
         this.name = name;
         this.title = title;
@@ -54,9 +51,6 @@ public class GraphStatistic {
         this.edges = edges;
         this.description = description;
         this.imgColorDescription = imgColorDescription;
-        this.avgdegree = avgdegree;
-        this.avgweighteddegree = avgweighteddegree;
-        this.density = density;
         this.graphfile = graphfile;
         this.pdffile = pdffile;
         this.browsegraph = browsegraph;
@@ -146,48 +140,14 @@ public class GraphStatistic {
         this.imgColorDescription = imgColorDescription;
     }
 
-    /**
-     * @return the avgdegree
-     */
-    public String getAvgdegree() {
-        return avgdegree;
+    public String getType() {
+        return type;
     }
 
-    /**
-     * @param avgdegree the avgdegree to set
-     */
-    public void setAvgdegree(String avgdegree) {
-        this.avgdegree = avgdegree;
+    public void setType(String type) {
+        this.type = type;
     }
-
-    /**
-     * @return the avgweighteddegree
-     */
-    public String getAvgweighteddegree() {
-        return avgweighteddegree;
-    }
-
-    /**
-     * @param avgweighteddegree the avgweighteddegree to set
-     */
-    public void setAvgweighteddegree(String avgweighteddegree) {
-        this.avgweighteddegree = avgweighteddegree;
-    }
-
-    /**
-     * @return the density
-     */
-    public String getDensity() {
-        return density;
-    }
-
-    /**
-     * @param density the density to set
-     */
-    public void setDensity(String density) {
-        this.density = density;
-    }    
-
+      
     /**
      * @return the nodesfile
      */
@@ -242,5 +202,13 @@ public class GraphStatistic {
      */
     public void setBrowsegraph(String browsegraph) {
         this.browsegraph = browsegraph;
+    }
+
+    public List<Metrics> getMetrics() {
+        return metrics;
+    }
+    
+    public void addMetric(Metrics metrics){
+        this.metrics.add(metrics);
     }
 }

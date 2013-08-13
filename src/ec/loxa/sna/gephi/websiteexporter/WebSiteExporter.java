@@ -4,7 +4,10 @@
  */
 package ec.loxa.sna.gephi.websiteexporter;
 
+import com.google.gson.Gson;
+import com.google.gson.stream.JsonReader;
 import ec.loxa.sna.gephi.websiteexporter.util.statistics.GraphStatistic;
+import ec.loxa.sna.gephi.websiteexporter.util.statistics.Metrics;
 import ec.loxa.sna.gephi.websiteexporter.util.statistics.StatisticsJSON;
 import ec.loxa.sna.websiteexporter.utilities.Util;
 import java.awt.Color;
@@ -13,7 +16,6 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.text.DecimalFormat;
 import java.util.List;
 import javax.imageio.ImageIO;
 import org.gephi.data.attributes.api.AttributeModel;
@@ -26,15 +28,13 @@ import org.gephi.io.exporter.spi.Exporter;
 import org.gephi.partition.api.Partition;
 import org.gephi.partition.api.PartitionModel;
 import org.gephi.project.api.*;
-import org.gephi.statistics.plugin.Degree;
-import org.gephi.statistics.plugin.GraphDensity;
-import org.gephi.statistics.plugin.WeightedDegree;
 import org.gephi.utils.longtask.spi.LongTask;
 import org.gephi.utils.progress.Progress;
 import org.gephi.utils.progress.ProgressTicket;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 
@@ -60,6 +60,13 @@ public class WebSiteExporter implements Exporter, LongTask {
     private StatisticsJSON statistics = new StatisticsJSON();
     private File projectPath;
     private String[] selectedWorkspaces;
+    private String description;
+    private String keywords;
+    private String title;
+    private String graphType;
+    private boolean append;
+    private int numAppend;
+    private String theme;
 
     @Override
     public boolean execute() {
@@ -78,7 +85,9 @@ public class WebSiteExporter implements Exporter, LongTask {
         //Si el proceso se canceló se borra la carpeta raíz
         if (cancel) {
             try {
-                delete(projectPath);
+                if (!append) {
+                    delete(projectPath);
+                }
             } catch (IOException ex) {
             }
         }
@@ -90,16 +99,26 @@ public class WebSiteExporter implements Exporter, LongTask {
         Project project = Lookup.getDefault().lookup(ProjectController.class).
                 getCurrentProject();
         //To get project name
-        ProjectInformation projectInformation =
-                project.getLookup().lookup(ProjectInformation.class);
+            ProjectInformation projectInformation =
+                    project.getLookup().lookup(ProjectInformation.class);
 
-        setProjectName(projectInformation.getName());
+            setProjectName(projectInformation.getName());
+        if (!isAppend()) {
 
-        File root = new File(getPath(), getProjectName());
-        //TODO: Debe ejecutarse si y solo si no se agrega un proyecto. Verificar la estructura del index.html
-        delete(root);
-        root.mkdir();
-        projectPath = root;
+            File root = new File(getPath(), getProjectName());
+            //TODO: Debe ejecutarse si y solo si no se agrega un proyecto. Verificar la estructura del index.html
+            delete(root);
+            root.mkdir();
+            projectPath = root;
+
+            //To get de Project Properties
+            ProjectMetaData pi = project.getLookup().lookup(ProjectMetaData.class);
+            description = pi.getDescription().toString();
+            keywords = pi.getKeywords().toString();
+            title = pi.getTitle().toString();
+        }else
+            projectPath = getPath();
+//HASTA AQUI
 
         //To get workspaces in the project
         WorkspaceProvider workspaceProvider =
@@ -117,19 +136,50 @@ public class WebSiteExporter implements Exporter, LongTask {
 
         ProjectController pc = Lookup.getDefault().lookup(ProjectController.class);
         boolean hasPartitionImage;
+        
+        if (append) {
+            List<GraphStatistic> grph;
+            File statisticPath = new File(projectPath.getAbsolutePath()+File.separator+"estadisticas.json");
+            JsonReader reder = new JsonReader(new FileReader(statisticPath.getAbsolutePath()));
+            Gson gson = new Gson();
+            try {
+                StatisticsJSON resp = gson.fromJson(reder, StatisticsJSON.class);
+                grph = resp.getGraphs();
+                setNumAppend(grph.size());
+                for (int i = 0; i < grph.size(); i++) {
+                    statistics.addGraph(grph.get(i));
+                }
+            } catch (Exception e) {
+                System.out.println("Fail: "+e.getMessage());
+            }
+        }
 
         for (int i = 0; i < allWorkspaces.length && !cancel; i++) {
             setWorkspace(allWorkspaces[i]);
             workspaceInfortion =
                     getWorkspace().getLookup().lookup(WorkspaceInformation.class);
             workspaceName = workspaceInfortion.getName().replace(" ", "");
-
+            
             //Verificar si se ha seleccionado
             if (isSelected(workspaceName)) {
-                pc.openWorkspace(getWorkspace());
+                try {
+                    pc.openWorkspace(getWorkspace());
+                } catch (Exception e) {
+                    System.out.println("MESSAGE: " + e.getMessage());
+                }
+
                 Progress.setDisplayName(progress, getMessage("message_Export")
                         + " " + workspaceName);
 
+                if (append) {
+                    String path = projectPath +File.separator+ workspaceName;
+                    File ws = new File(path);
+                    while(ws.exists()){
+                        workspaceName = workspaceName + "_1";
+                        path = projectPath+File.separator+workspaceName;
+                        ws = new File(path);
+                    }
+                }
                 createDirectoryToWorkspace(projectPath, workspaceName);
                 saveGEXF(workspaceName, getWorkspace());
 
@@ -138,17 +188,24 @@ public class WebSiteExporter implements Exporter, LongTask {
                     PartitionModel partitionModel =
                             getWorkspace().getLookup().lookup(PartitionModel.class);
 
-                    Progress.setDisplayName(progress,
-                            getMessage("message_Getting_Statistics")
-                            + " " + workspaceName);
 
                     graphModel = getWorkspace().getLookup().lookup(GraphModel.class);
                     attModel = getWorkspace().getLookup().lookup(AttributeModel.class);
 
+                    try {
+                        if (graphModel.isDirected()) {
+                            graphType = "Directed";
+                        } else {
+                            graphType = "Undirected";
+                        }
+                    } catch (Exception e) {
+                        System.out.println("ERROR: " + e.getMessage());
+                    }
+
                     saveGraphCSV(workspaceName, getWorkspace());
                     saveGraphPDF(workspaceName, getWorkspace());
                     hasPartitionImage = generatePartitionImage(partitionModel, workspaceName);
-                    getStatistics(workspaceName, graphModel.getGraphVisible(), attModel, hasPartitionImage);
+                    getStatistics(workspaceName, graphModel.getGraphVisible(), attModel, hasPartitionImage, allWorkspaces[i]);
                 } else {
                     Progress.setDisplayName(progress, getMessage("message_Cancel"));
                 }
@@ -157,45 +214,80 @@ public class WebSiteExporter implements Exporter, LongTask {
         //Si el proceso no fue cancelado se genera la información
         if (!cancel) {
             saveStatistics();
-            copyWebSiteFiles();
+            if (!isAppend()) {
+                copyWebSiteFiles();
+            }
             builIndexPage();
+            if (!append) {
+                builInfoPage();
+                builAboutPage();
+            }
             delete(new File(projectPath.getAbsolutePath() + File.separator + "FilesWebSite.zip"));
             delete(new File(projectPath.getAbsolutePath() + File.separator + "__MACOSX"));
         }
     }
 
     private void getStatistics(String wsName, Graph currentGraph,
-            AttributeModel attModel, boolean hasPartitionImage) throws IOException {
-        Degree degree = new Degree();
-        GraphDensity gDensity = new GraphDensity();
-        WeightedDegree wDegree = new WeightedDegree();
-        DecimalFormat decimalFormat = new DecimalFormat("0.00");
-        double avgDegree;
-        double density;
-        double wAvgDegree;
+            AttributeModel attModel, boolean hasPartitionImage, Workspace ws) throws IOException {
 
         GraphStatistic graphData = new GraphStatistic();
+        Metrics metricsData;
 
         graphData.setName(wsName);
         graphData.setTitle("Title to " + wsName);
         graphData.setEdges(String.valueOf(currentGraph.getEdgeCount()));
         graphData.setNodes(String.valueOf(currentGraph.getNodeCount()));
+        graphData.setDescription(description);
+        graphData.setType(graphType);
 
-        Progress.setDisplayName(progress, getMessage("message_Degree"));
+        metricsData = new Metrics();
+        metricsData.setName("Metric 1");
+        metricsData.setValue("0,00");
+        metricsData.setDescription("Description for metric 1");
+        graphData.addMetric(metricsData);
 
-        degree.execute(currentGraph.getGraphModel(), attModel);
-        avgDegree = degree.getAverageDegree();
-        graphData.setAvgdegree(decimalFormat.format(avgDegree));
+        metricsData = new Metrics();
+        metricsData.setName("Metric 2");
+        metricsData.setValue("0,00");
+        metricsData.setDescription("Description for metric 2");
+        graphData.addMetric(metricsData);
 
-        Progress.setDisplayName(progress, getMessage("message_Density"));
-        gDensity.execute(currentGraph.getGraphModel(), attModel);
-        density = gDensity.getDensity();
-        graphData.setDensity(decimalFormat.format(density));
+        metricsData = new Metrics();
+        metricsData.setName("Metric 3");
+        metricsData.setValue("0,00");
+        metricsData.setDescription("Description for metric 3");
+        graphData.addMetric(metricsData);
 
-        Progress.setDisplayName(progress, getMessage("message_WeigthedDegree"));
-        wDegree.execute(currentGraph.getGraphModel(), attModel);
-        wAvgDegree = wDegree.getAverageDegree();
-        graphData.setAvgweighteddegree(decimalFormat.format(wAvgDegree));
+        metricsData = new Metrics();
+        metricsData.setName("Metric 4");
+        metricsData.setValue("0,00");
+        metricsData.setDescription("Description for metric 4");
+        graphData.addMetric(metricsData);
+
+        metricsData = new Metrics();
+        metricsData.setName("Metric 5");
+        metricsData.setValue("0,00");
+        metricsData.setDescription("Description for metric 5");
+        graphData.addMetric(metricsData);
+
+        metricsData = new Metrics();
+        metricsData.setName("Metric 6");
+        metricsData.setValue("0,00");
+        metricsData.setDescription("Description for metric 6");
+        graphData.addMetric(metricsData);
+
+        metricsData = new Metrics();
+        metricsData.setName("Metric 7");
+        metricsData.setValue("0,00");
+        metricsData.setDescription("Description for metric 7");
+        graphData.addMetric(metricsData);
+
+        metricsData = new Metrics();
+        metricsData.setName("Metric 8");
+        metricsData.setValue("0,00");
+        metricsData.setDescription("Description for metric 8");
+        graphData.addMetric(metricsData);
+
 
         graphData.setGraphfile(wsName + "/" + wsName + ".csv");
         graphData.setPdffile(wsName + "/" + wsName + ".pdf");
@@ -220,39 +312,110 @@ public class WebSiteExporter implements Exporter, LongTask {
     private void builIndexPage() throws IOException {
         File index = new File(projectPath.getAbsolutePath() + File.separator + "index.html");
         StringBuilder options = new StringBuilder();
-        StringBuilder menus = new StringBuilder();
         Document doc = Jsoup.parse(index, "UTF-8");
         List<GraphStatistic> gStatistics = statistics.getGraphs();
         int i = 0;
         Element comboGrafos = doc.select("#grafos").first();
-        Element menu = doc.select("#menuAnalisis").first();
-        menus.append("<div class=\"accordion-group\">");
-        menus.append("<div class=\"accordion-heading\">");
-        menus.append("<a class=\"accordion-toggle\" data-toggle=\"collapse\" data-parent=\"#menuAnalisis\" href=\"#collapse").append(projectName).append("\">").append(projectName).append("</a>");
-        menus.append("</div>");
-        menus.append("<div id=\"collapse").append(projectName).append("\" class=\"accordion-body collapse\">");
-        menus.append("<div class=\"accordion-inner\">");
-        menus.append("<ul>");
-        options.append("<optgroup label='").append(projectName).append("'>");
-        for (GraphStatistic gs : gStatistics) {
-            if (i == 0) {
-                Element body = doc.body();
-                body.attr("onload", "start('" + gs.getName() + "');");
-                options.append("<option value = '").append(gs.getName()).append("' selected='true'>").append(gs.getName()).append("</option>");
-            } else {
-                options.append("<option value = '").append(gs.getName()).append("'>").append(gs.getName()).append("</option>");
+        
+        Element valueTheme = doc.select("#valTheme").first();
+        valueTheme.empty();
+        String val = "<input id='theme' type='text' value='"+theme+"' />";
+        valueTheme.append(val);
+
+        Element desc = doc.select("meta[name=keywords]").first();
+        String words = desc.attr("content");
+        if (keywords!=null && keywords.length()>0)
+            words += ", " + keywords;
+        desc.attr("content", words);
+
+        String ttl = doc.title();
+        if (title!=null && title.length()>0)
+            doc.title(ttl + " " + title);
+        
+        if (!append) {
+            //comboGrafos.empty();
+        //}
+            options.append("<optgroup label='").append(projectName).append("'>");
+            for (GraphStatistic gs : gStatistics) {
+                if (i == 0) {
+                    Element body = doc.body();
+                    body.attr("onload", "start('" + gs.getName() + "');");
+                    options.append("<option value = '").append(gs.getName()).append("' selected='true'>").append(gs.getName()).append("</option>");
+                } else {
+                    options.append("<option value = '").append(gs.getName()).append("'>").append(gs.getName()).append("</option>");
+                }
+                i++;
             }
-            i++;
-            menus.append("<li><a href='#' onClick=\"configView('").append(gs.getName()).append("')\">").append(gs.getName()).append("</a></li>");
+            options.append("</optgroup>");
+        } else{
+            Elements labels = doc.select("optgroup");
+            String pName="";
+            boolean eProject=false;
+            for (Element opt : labels) {
+                pName = opt.attr("label");
+                if (pName.equals(projectName)) {
+                    eProject=true;
+                    break;
+                }else
+                    eProject=false;
+            }
+            if (eProject) {
+                Element labelProj = doc.select("optgroup[label="+pName+"]").first();
+                StringBuilder sbOpt = new StringBuilder();
+                for (int j = numAppend; j < gStatistics.size(); j++) {
+                    sbOpt.append("<option value = '").append(gStatistics.get(j).getName()).append("'>").append(gStatistics.get(j).getName()).append("</option>");
+                }
+                labelProj.append(sbOpt.toString());
+            }else{
+                options.append("<optgroup label='").append(projectName).append("'>");
+                for (int j = numAppend; j < gStatistics.size(); j++) {
+                    options.append("<option value = '").append(gStatistics.get(j).getName()).append("'>").append(gStatistics.get(j).getName()).append("</option>");
+                }
+            }
         }
-        menus.append("</ul>");
-        menus.append("</div></div></div>");
-        options.append("</optgroup>");
 
         comboGrafos.append(options.toString());
-        menu.append(menus.toString());
 
         String pathFile = projectPath.getAbsolutePath() + File.separator + "index.html";
+        OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(pathFile), "UTF-8");
+
+        out.write(doc.toString());
+        out.close();
+    }
+
+    private void builInfoPage() throws IOException {
+        File info = new File(projectPath.getAbsolutePath() + File.separator + "info.html");
+        StringBuilder desc = new StringBuilder();
+        Document doc = Jsoup.parse(info, "UTF-8");
+        Elements e = doc.select("#tabProject");
+
+        String ttl = doc.title();
+        doc.title(ttl + " " + title);
+
+        Element parrafo = doc.select("#tabProject").first();
+        if (description != null /*|| !description.isEmpty()*/) {
+            e = doc.select("div#tabProject > h4").remove();
+            e = doc.select("div#tabProject > p").remove();
+            desc.append("<h4>").append(projectName.toString()).append("</h4>");
+            desc.append("<p style=\"text-align: justify\">").append(description.toString()).append("</p>");
+        }
+        parrafo.append(desc.toString());
+
+        String pathFile = projectPath.getAbsolutePath() + File.separator + "info.html";
+        OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(pathFile), "UTF-8");
+
+        out.write(doc.toString());
+        out.close();
+    }
+
+    private void builAboutPage() throws IOException {
+        File about = new File(projectPath.getAbsolutePath() + File.separator + "about.html");
+        Document doc = Jsoup.parse(about, "UTF-8");
+
+        String ttl = doc.title();
+        doc.title(ttl + " " + title);
+
+        String pathFile = projectPath.getAbsolutePath() + File.separator + "about.html";
         OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(pathFile), "UTF-8");
 
         out.write(doc.toString());
@@ -262,9 +425,7 @@ public class WebSiteExporter implements Exporter, LongTask {
     private void saveStatistics() throws Exception {
         String pathFile = projectPath.getAbsolutePath() + File.separator + "estadisticas.json";
         OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(pathFile), "UTF-8");
-
         out.write(statistics.toJSON());
-
         out.close();
     }
 
@@ -328,7 +489,7 @@ public class WebSiteExporter implements Exporter, LongTask {
 
     private void createDirectoryToWorkspace(File root, String workspaceName) throws IOException {
         //TODO: Verificar si el directorio existe. Si existe generar otro nombre
-        File directory = new File(root, workspaceName);        
+        File directory = new File(root, workspaceName);
         delete(directory);
         directory.mkdir();
     }
@@ -556,4 +717,29 @@ public class WebSiteExporter implements Exporter, LongTask {
     public void setExportSize(boolean exportSize) {
         this.exportSize = exportSize;
     }
+
+    public void setAppend(boolean append) {
+        this.append = append;
+    }
+
+    public boolean isAppend() {
+        return append;
+    }
+
+    public int getNumAppend() {
+        return numAppend;
+    }
+
+    public void setNumAppend(int numAppend) {
+        this.numAppend = numAppend;
+    }
+
+    public String getTheme() {
+        return theme;
+    }
+
+    public void setTheme(String theme) {
+        this.theme = theme;
+    }
+    
 }

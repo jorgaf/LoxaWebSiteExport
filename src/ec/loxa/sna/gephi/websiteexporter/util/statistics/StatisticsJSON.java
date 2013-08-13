@@ -6,6 +6,7 @@
 package ec.loxa.sna.gephi.websiteexporter.util.statistics;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
@@ -92,7 +93,7 @@ public class StatisticsJSON {
     }
 
     public String toJSON(){
-        Gson gson = new Gson();
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
         return gson.toJson(this);
     }
 }

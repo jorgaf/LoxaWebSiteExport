@@ -15,8 +15,13 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.ListIterator;
+import java.util.TreeSet;
 import javax.swing.AbstractListModel;
 import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
 import org.gephi.graph.api.GraphModel;
 import org.gephi.project.api.*;
 import org.netbeans.validation.api.builtin.Validators;
@@ -35,14 +40,16 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
     final String LAST_PATH = "WebSiteExporterUI_Last_Path";
     private WebSiteExporter wsExporter;
     private File path;
+    private boolean append = false;
 
-    /** Creates new form WebSiteSettingsPanel */
+    /**
+     * Creates new form WebSiteSettingsPanel
+     */
     public WebSiteSettingsPanel() {
         initComponents();
         loadWorkSpaceNames();
 
         btnBrowse.addActionListener(new ActionListener() {
-
             @Override
             public void actionPerformed(ActionEvent e) {
                 JFileChooser fileChooser = new JFileChooser(txtPath.getText());
@@ -51,6 +58,47 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
                 if (result == JFileChooser.APPROVE_OPTION) {
                     path = fileChooser.getSelectedFile();
                     txtPath.setText(path.getAbsolutePath());
+                    append = false;
+                }
+            }
+        });
+
+        btnAppend.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                //
+                String nom[] = {"index.html", "estadisticas.json"};
+                TreeSet files = new TreeSet();
+                files.addAll(Arrays.asList(nom));
+
+                ArrayList<String> temp = new ArrayList<String>();
+                StringBuilder sb = new StringBuilder();
+                boolean miss = false;
+
+                JFileChooser fChooser = new JFileChooser(txtPath.getText());
+                fChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                int r = fChooser.showOpenDialog(WindowManager.getDefault().getMainWindow());
+                if (r == JFileChooser.APPROVE_OPTION) {
+                    Iterator i = files.iterator();
+                    while (i.hasNext())
+                        temp.add(fChooser.getSelectedFile().getPath()+File.separator+i.next());
+                    
+                    ListIterator<String> t = temp.listIterator();
+                    while (t.hasNext()) {
+                        String tMsg= t.next();
+                        File fTemp = new File(tMsg);
+                        if (!fTemp.exists()){
+                            System.out.println(fTemp.getName());
+                            sb.append(fTemp.getName()).append(", ");
+                            miss = true;
+                        }
+                    }
+
+                    if (miss)
+                        JOptionPane.showMessageDialog(null, "files missing: "+sb.deleteCharAt(sb.length()-2));
+                    else {
+                        txtPath.setText(fChooser.getSelectedFile().getPath());
+                        append = true;
+                    }
                 }
             }
         });
@@ -62,7 +110,7 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
 
         path = new File(NbPreferences.forModule(WebSiteExporterUI.class).get(LAST_PATH, System.getProperty("user.home")));
         txtPath.setText(path.getAbsolutePath());
-        
+
         chbAttributes.setSelected(wsExporter.isExportAttributes());
         chbColors.setSelected(wsExporter.isExportColors());
         chbDynamic.setSelected(wsExporter.isExportDynamic());
@@ -83,6 +131,14 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
             wsExporter.setExportDynamic(chbDynamic.isSelected());
             wsExporter.setExportPosition(chbPosition.isSelected());
             wsExporter.setExportSize(chbSize.isSelected());
+            wsExporter.setAppend(append);
+            if (rbnPGD.isSelected()) {
+                wsExporter.setTheme("paintViewer");
+            }else if (rbnHide.isSelected()) {
+                wsExporter.setTheme("hide");
+            }else if (rbnFishEye.isSelected()){
+                wsExporter.setTheme("fishEye");
+            }
         }
     }
 
@@ -90,9 +146,9 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
         ValidationPanel validationPanel = new ValidationPanel();
         validationPanel.setInnerComponent(innerPanel);
 
-        ValidationGroup group = validationPanel.getValidationGroup();        
+        ValidationGroup group = validationPanel.getValidationGroup();
 
-        group.add(innerPanel.txtPath, Validators.FILE_MUST_BE_DIRECTORY);        
+        group.add(innerPanel.txtPath, Validators.FILE_MUST_BE_DIRECTORY);
 
         return validationPanel;
     }
@@ -104,7 +160,7 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
                 project.getLookup().lookup(WorkspaceProvider.class);
         WorkspaceInformation workspaceInfortion;
         Workspace workspace;
-        
+
         ArrayList<String> namesSelected = new ArrayList<String>();
         GraphModel graphModel;
 
@@ -114,7 +170,7 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
             workspaceInfortion = workspace.getLookup().lookup(WorkspaceInformation.class);
             graphModel = workspace.getLookup().lookup(GraphModel.class);
             if (graphModel.getGraphVisible().getNodeCount() > 0 || graphModel.getGraphVisible().getEdgeCount() > 0) {
-                namesSelected.add(workspaceInfortion.getName());                
+                namesSelected.add(workspaceInfortion.getName());
             }
         }
         final String[] names;
@@ -122,7 +178,6 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
         names = namesSelected.toArray(namesAux);
 
         lstWorkspaces.setModel(new AbstractListModel() {
-
             String[] strings = names;
 
             @Override
@@ -151,15 +206,16 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
         return selectedWorkspaces;
     }
 
-    /** This method is called from within the constructor to
-     * initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is
-     * always regenerated by the Form Editor.
+    /**
+     * This method is called from within the constructor to initialize the form.
+     * WARNING: Do NOT modify this code. The content of this method is always
+     * regenerated by the Form Editor.
      */
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        btngGraphTheme = new javax.swing.ButtonGroup();
         header = new org.jdesktop.swingx.JXHeader();
         pnlWSettings = new javax.swing.JPanel();
         lblPath = new javax.swing.JLabel();
@@ -168,16 +224,20 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
         lblWorkspace = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         lstWorkspaces = new javax.swing.JList();
+        btnAppend = new javax.swing.JButton();
         pnlGEXFSettings = new javax.swing.JPanel();
         chbAttributes = new javax.swing.JCheckBox();
         chbColors = new javax.swing.JCheckBox();
         chbDynamic = new javax.swing.JCheckBox();
         chbPosition = new javax.swing.JCheckBox();
         chbSize = new javax.swing.JCheckBox();
+        pnlGraphTheme = new javax.swing.JPanel();
+        rbnPGD = new javax.swing.JRadioButton();
+        rbnHide = new javax.swing.JRadioButton();
+        rbnFishEye = new javax.swing.JRadioButton();
 
         header.setDescription(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.header.description")); // NOI18N
         header.setIcon(new javax.swing.ImageIcon(getClass().getResource("/ec/loxa/sna/gephi/websiteexporter/resources/loxa.png"))); // NOI18N
-        header.setIconPosition(org.jdesktop.swingx.JXHeader.IconPosition.LEFT);
         header.setTitle(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.header.title")); // NOI18N
 
         pnlWSettings.setBorder(javax.swing.BorderFactory.createTitledBorder(javax.swing.BorderFactory.createEtchedBorder(), org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.pnlWSettings.border.title"))); // NOI18N
@@ -190,6 +250,8 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
         lblWorkspace.setText(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.lblWorkspace.text")); // NOI18N
 
         jScrollPane1.setViewportView(lstWorkspaces);
+
+        btnAppend.setText(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.btnAppend.text")); // NOI18N
 
         org.jdesktop.layout.GroupLayout pnlWSettingsLayout = new org.jdesktop.layout.GroupLayout(pnlWSettings);
         pnlWSettings.setLayout(pnlWSettingsLayout);
@@ -205,9 +267,11 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
                     .add(pnlWSettingsLayout.createSequentialGroup()
                         .add(lblWorkspace)
                         .add(18, 18, 18)
-                        .add(jScrollPane1)))
+                        .add(jScrollPane1, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 641, Short.MAX_VALUE)))
                 .add(18, 18, 18)
-                .add(btnBrowse)
+                .add(pnlWSettingsLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
+                    .add(btnBrowse)
+                    .add(btnAppend))
                 .addContainerGap())
         );
         pnlWSettingsLayout.setVerticalGroup(
@@ -221,9 +285,12 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
                 .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
                 .add(pnlWSettingsLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
                     .add(lblWorkspace)
-                    .add(jScrollPane1, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 129, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
+                    .add(jScrollPane1, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 129, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                    .add(btnAppend))
                 .addContainerGap())
         );
+
+        btnAppend.getAccessibleContext().setAccessibleName(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.btnAppend.text")); // NOI18N
 
         pnlGEXFSettings.setBorder(javax.swing.BorderFactory.createTitledBorder(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.pnlGEXFSettings.border.title"))); // NOI18N
 
@@ -249,7 +316,7 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
                     .add(chbDynamic)
                     .add(chbColors)
                     .add(chbAttributes))
-                .addContainerGap(org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(538, Short.MAX_VALUE))
         );
         pnlGEXFSettingsLayout.setVerticalGroup(
             pnlGEXFSettingsLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
@@ -266,28 +333,80 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
                 .add(0, 0, Short.MAX_VALUE))
         );
 
+        pnlGraphTheme.setBorder(javax.swing.BorderFactory.createTitledBorder(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.pnlGraphTheme.border.title"))); // NOI18N
+        pnlGraphTheme.setToolTipText(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.pnlGraphTheme.toolTipText")); // NOI18N
+
+        btngGraphTheme.add(rbnPGD);
+        rbnPGD.setSelected(true);
+        rbnPGD.setText(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.rbnPGD.text")); // NOI18N
+
+        btngGraphTheme.add(rbnHide);
+        rbnHide.setText(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.rbnHide.text")); // NOI18N
+
+        btngGraphTheme.add(rbnFishEye);
+        rbnFishEye.setText(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.rbnFishEye.text")); // NOI18N
+
+        org.jdesktop.layout.GroupLayout pnlGraphThemeLayout = new org.jdesktop.layout.GroupLayout(pnlGraphTheme);
+        pnlGraphTheme.setLayout(pnlGraphThemeLayout);
+        pnlGraphThemeLayout.setHorizontalGroup(
+            pnlGraphThemeLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
+            .add(pnlGraphThemeLayout.createSequentialGroup()
+                .add(14, 14, 14)
+                .add(pnlGraphThemeLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
+                    .add(rbnPGD)
+                    .add(rbnHide)
+                    .add(rbnFishEye))
+                .addContainerGap(org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        pnlGraphThemeLayout.setVerticalGroup(
+            pnlGraphThemeLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
+            .add(pnlGraphThemeLayout.createSequentialGroup()
+                .add(21, 21, 21)
+                .add(rbnPGD)
+                .addPreferredGap(org.jdesktop.layout.LayoutStyle.UNRELATED)
+                .add(rbnHide)
+                .addPreferredGap(org.jdesktop.layout.LayoutStyle.UNRELATED)
+                .add(rbnFishEye)
+                .addContainerGap(26, Short.MAX_VALUE))
+        );
+
+        rbnPGD.getAccessibleContext().setAccessibleName(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.rbnPGD.text")); // NOI18N
+        rbnHide.getAccessibleContext().setAccessibleName(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.rbnHide.text")); // NOI18N
+        rbnFishEye.getAccessibleContext().setAccessibleName(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.rbnFishEye.text")); // NOI18N
+
         org.jdesktop.layout.GroupLayout layout = new org.jdesktop.layout.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
-            .add(pnlGEXFSettings, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .add(header, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 1174, Short.MAX_VALUE)
+            .add(header, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 1166, Short.MAX_VALUE)
             .add(layout.createSequentialGroup()
-                .add(pnlWSettings, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .add(layout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
+                    .add(pnlWSettings, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .add(layout.createSequentialGroup()
+                        .add(pnlGEXFSettings, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                        .add(18, 18, 18)
+                        .add(pnlGraphTheme, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
             .add(org.jdesktop.layout.GroupLayout.TRAILING, layout.createSequentialGroup()
-                .add(header, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 98, Short.MAX_VALUE)
+                .add(header, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 80, Short.MAX_VALUE)
                 .add(18, 18, 18)
                 .add(pnlWSettings, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(org.jdesktop.layout.LayoutStyle.UNRELATED)
-                .add(pnlGEXFSettings, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
+                .add(layout.createParallelGroup(org.jdesktop.layout.GroupLayout.TRAILING)
+                    .add(pnlGEXFSettings, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                    .add(pnlGraphTheme, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap())
         );
+
+        pnlGraphTheme.getAccessibleContext().setAccessibleName(org.openide.util.NbBundle.getMessage(WebSiteSettingsPanel.class, "WebSiteSettingsPanel.pnlGraphTheme.border.title")); // NOI18N
     }// </editor-fold>//GEN-END:initComponents
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton btnAppend;
     private javax.swing.JButton btnBrowse;
+    private javax.swing.ButtonGroup btngGraphTheme;
     private javax.swing.JCheckBox chbAttributes;
     private javax.swing.JCheckBox chbColors;
     private javax.swing.JCheckBox chbDynamic;
@@ -299,7 +418,11 @@ public class WebSiteSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JLabel lblWorkspace;
     private javax.swing.JList lstWorkspaces;
     private javax.swing.JPanel pnlGEXFSettings;
+    private javax.swing.JPanel pnlGraphTheme;
     private javax.swing.JPanel pnlWSettings;
+    private javax.swing.JRadioButton rbnFishEye;
+    private javax.swing.JRadioButton rbnHide;
+    private javax.swing.JRadioButton rbnPGD;
     private javax.swing.JTextField txtPath;
     // End of variables declaration//GEN-END:variables
 }
